@@ -19,7 +19,7 @@ class IndexServer:
 
 	def _listen_on_registration_socket(self):
 		while True:
-			connection, address = serv.accept()
+			connection, address = self.registration_socket.accept()
 			from_client = ""
 			while True:
 				data = connection.recv(4096)
@@ -30,3 +30,6 @@ class IndexServer:
 					self.filename_to_hostname[filename] = address
 				connection.send("Received.".encode())
 			connection.close()
+
+index_server = IndexServer()
+index_server.start()

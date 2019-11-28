@@ -1,30 +1,63 @@
 import socket
 import threading
+import datetime
+import pickle
 
 
 class IndexServer:
 
     def __init__(self):
         self.registration_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.get_hostname_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.get_hostname_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.registration_socket.bind(('localhost', 4000))
         self.get_hostname_socket.bind(('localhost', 4001))
+        self.get_hostname_socket.listen(5)
+        self.hostname_to_last_message_time = {}
         self.filename_to_hostname = {}
+        self.connected_nodes = {}
 
     def start(self):
-        threading.Thread(target=self._listen_on_registration_socket()).start()
-        # threading.Thread(target=self._listen_on_get_hostname_socket()).start()
+        threading.Thread(target=self._handle_registration_socket()).start()
+        threading.Thread(target=self._update_connected_nodes()).start()
+        threading.Thread(target=self._handle_get_hostname_socket()).start()
 
-    def _listen_on_registration_socket(self):
+    def _handle_get_hostname_socket_connection(self, connection, address):
+        while True:
+            message = connection.recv(16)
+            if not message:
+                break
+            message = str(message)
+            if len(message) == 0:
+                break
+            connection.sendall(pickle.dumps({"containers": self.filename_to_hostname.get(message, [])}))
+        connection.close()
+
+    def _handle_get_hostname_socket(self):
+        while True:
+            connection, address = self.accept()
+            threading.Thread(target=self._handle_get_hostname_socket_connection(), args=(connection, address)).start()
+
+    def _handle_registration_socket(self):
         while True:
             data, address = self.registration_socket.recvfrom(4096)
             if not data:
                 break
-            filenames = list(data)
-            for filename in filenames:
-                self.filename_to_hostname[filename] = address
-            # self.registration_socket.send("Received.".encode())
+            self.hostname_to_last_message_time[address] = datetime.now()
+            self.connected_nodes[address] = True
+            received = pickle.loads(data)
+            for filename in received["files"]:
+                self.filename_to_hostname[filename] = address + ":" + received["port"]
         self.registration_socket.close()
+
+    def _check_disconnect(self):
+        while True:
+            now = datetime.now()
+            keys = self.hostname_to_last_message_time.keys()
+            for key in keys:
+                if now - datetime.timedelta(seconds=90) < self.hostname_to_last_message_time[key]:
+                    del self.connected_nodes[key]
+                    del self.hostname_to_last_message_time[key]
+            time.sleep(1)
 
 index_server = IndexServer()
 index_server.start()

@@ -63,7 +63,7 @@ class TransferThread(Thread):
                 "status": 200,
                 "file": pickle.dumps(file_to_open)
             }
-        self._con.send(msg)
+        self._con.send(pickle.dumps(msg))
 
 
 class Node:
@@ -84,15 +84,15 @@ class Node:
         while True:
             cmd = input("Enter your command:\n")
             if cmd == "search":
-                # file_name = input("\tEnter the filename:\n")
-                # containers = self.search(file_name)
-                # if containers:
-                #     chosen = self.show_choices(containers)
-                #     if chosen:
-                #         ip, port_str = chosen.split(":")
-                #         port = int(port_str)
-                #         file = self.get_file(ip, port, file_name)
-                file = self.get_file('localhost', 5002, "README.md")
+                file_name = input("\tEnter the filename:\n")
+                containers = self.search(file_name)
+                if containers:
+                    chosen = self.show_choices(containers)
+                    if chosen:
+                        ip, port_str = chosen.split(":")
+                        port = int(port_str)
+                        file = self.get_file(ip, port, file_name)
+                # file = self.get_file('localhost', 5002, "README.md")
 
             elif cmd == "exit":
                 self._hello_thread.exit = True
@@ -120,7 +120,7 @@ class Node:
     def get_file(self, ip, port, file_name):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, port))
-        sock.send(file_name.encode())
+        sock.send(pickle.dumps(file_name))
         file = sock.recv(BUFFER_SIZE)
         print(file)
         return file
@@ -132,8 +132,8 @@ class Node:
         except ConnectionRefusedError:
             print("can not connect, try later")
             return
-        sock.send(file_name.encode())
-        data = pickle.load(sock.recv(BUFFER_SIZE))
+        sock.send(pickle.dumps(file_name))
+        data = pickle.loads(sock.recv(BUFFER_SIZE))
         sock.close()
         print(type(data), data)
         return data.get("containers")

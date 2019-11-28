@@ -40,12 +40,13 @@ class ReceiverThread(Thread):
 
 
 class Node:
-    def __init__(self, dir_to_share):
+    def __init__(self, dir_to_share, receiver_port):
         self._server_ip = SERVER_IP
         self._hello_port = SERVER_HELLO_PORT
         self._search_port = SERVER_SEARCH_PORT
         self._dir_to_share = dir_to_share
-        self._hello_thread = HelloThread(self._server_ip, self._hello_port, dir_to_share)
+        self._receiver_port = receiver_port
+        self._hello_thread = HelloThread(self._server_ip, self._hello_port, dir_to_share, self._receiver_port)
 
     def start(self):
         self._hello_thread.start()
@@ -83,7 +84,7 @@ class Node:
                 print("Canceled by user")
                 return None
             choice_index = int(choice) - 1
-            if choice_index in range(len(range)):
+            if choice_index in range(len(containers)):
                 return containers[choice_index]
             print("Not a valid Choice, Please Re-enter your choice")
 
@@ -119,6 +120,6 @@ SERVER_HELLO_PORT = 4000
 SERVER_SEARCH_PORT = 5000
 BUFFER_SIZE = 1024
 
-node = Node(".")
+node = Node(".", 5005)
 node.start()
 node.cmdline()

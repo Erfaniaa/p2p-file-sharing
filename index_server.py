@@ -2,6 +2,7 @@ import socket
 import threading
 import datetime
 import pickle
+import time
 
 
 class IndexServer:
@@ -40,18 +41,19 @@ class IndexServer:
     def _handle_registration_socket(self):
         while True:
             data, address = self.registration_socket.recvfrom(4096)
+            ip_port = address[0]+":"+str(address[1])
             if not data:
                 break
-            self.hostname_to_last_message_time[address] = datetime.now()
-            self.connected_nodes[address] = True
+            self.hostname_to_last_message_time[ip_port] = datetime.datetime.now()
+            self.connected_nodes[ip_port] = True
             received = pickle.loads(data)
             for filename in received["files"]:
-                self.filename_to_hostname[filename] = address + ":" + received["port"]
+                self.filename_to_hostname[filename] = (*address, received["port"])
         self.registration_socket.close()
 
     def _check_disconnect(self):
         while True:
-            now = datetime.now()
+            now = datetime.datetime.now()
             keys = self.hostname_to_last_message_time.keys()
             for key in keys:
                 if now - datetime.timedelta(seconds=90) < self.hostname_to_last_message_time[key]:

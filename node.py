@@ -52,18 +52,19 @@ class TransferThread(Thread):
         self._dir_to_share = dir_to_share
 
     def run(self):
-        file_name = pickle.loads(self._con.recv(BUFFER_SIZE))
+        data = self._con.recv(BUFFER_SIZE).decode()
+        print(data)
+        file_name = data
         files_list = get_files_list(self._dir_to_share)
-        if file_name not in files_list:
-            msg = {"status": 404}
-        else:
+        if file_name in files_list:
             file_to_open = self._dir_to_share + "/" + file_name
-            file = open(file_to_open, 'r')
-            msg = {
-                "status": 200,
-                "file": pickle.dumps(file_to_open)
-            }
-        self._con.send(msg)
+            file = open(file_to_open, 'rb')
+            pkt = file.read(1024)
+            while pkt:
+                self._con.send(pkt)
+                pkt = file.read(1024)
+            file.close()
+        self._con.close()
 
 
 class Node:
@@ -121,8 +122,14 @@ class Node:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, port))
         sock.send(file_name.encode())
-        file = sock.recv(BUFFER_SIZE)
-        print(file)
+        with open(file_name, 'wb') as file:
+            while True:
+                data = sock.recv(BUFFER_SIZE)
+                if not data:
+                    break
+                file.write(data)
+        file.close()
+        sock.close()
         return file
 
     def search(self, file_name):
@@ -133,7 +140,7 @@ class Node:
             print("can not connect, try later")
             return
         sock.send(file_name.encode())
-        data = pickle.load(sock.recv(BUFFER_SIZE))
+        data = pickle.loads(sock.recv(BUFFER_SIZE))
         sock.close()
         print(type(data), data)
         return data.get("containers")
@@ -147,7 +154,7 @@ def get_files_list(shared_dir):
 SERVER_IP = "127.0.0.1"
 SERVER_HELLO_PORT = 4000
 SERVER_SEARCH_PORT = 4001
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 8192
 
 port = input()
 if port:

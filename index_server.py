@@ -73,12 +73,12 @@ class HandleRegistrationSocket(Thread):
     def run(self):
         while True:
             data, address = self.registration_socket.recvfrom(4096)
-            ip_port = address[0] + ":" + str(address[1])
             if not data:
                 break
+            received = pickle.loads(data)
+            ip_port = address[0] + ":" + received["port"]
             self.hostname_to_last_message_time[ip_port] = datetime.datetime.now()
             self.connected_nodes[ip_port] = True
-            received = pickle.loads(data)
             print(received)
             for filename in received["files"]:
                 self.filename_to_hostname[filename] = (*address, received["port"])

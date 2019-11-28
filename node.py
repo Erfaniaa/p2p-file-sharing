@@ -67,6 +67,7 @@ class TransferThread(Thread):
         self._con.close()
 
 
+
 class Node:
     def __init__(self, dir_to_share, receiver_port):
         self._server_ip = SERVER_IP
@@ -85,15 +86,15 @@ class Node:
         while True:
             cmd = input("Enter your command:\n")
             if cmd == "search":
-                # file_name = input("\tEnter the filename:\n")
-                # containers = self.search(file_name)
-                # if containers:
-                #     chosen = self.show_choices(containers)
-                #     if chosen:
-                #         ip, port_str = chosen.split(":")
-                #         port = int(port_str)
-                #         file = self.get_file(ip, port, file_name)
-                file = self.get_file('localhost', 5002, "README.md")
+                file_name = input("\tEnter the filename:\n")
+                containers = self.search(file_name)
+                if containers:
+                    chosen = self.show_choices(containers)
+                    if chosen:
+                        ip, port_str = chosen.split(":")
+                        port = int(port_str)
+                        file = self.get_file(ip, port, file_name)
+                # file = self.get_file('localhost', 5002, "README.md")
 
             elif cmd == "exit":
                 self._hello_thread.exit = True
@@ -121,7 +122,7 @@ class Node:
     def get_file(self, ip, port, file_name):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, port))
-        sock.send(file_name.encode())
+        sock.send(pickle.dumps(file_name))
         with open(file_name, 'wb') as file:
             while True:
                 data = sock.recv(BUFFER_SIZE)
@@ -139,7 +140,7 @@ class Node:
         except ConnectionRefusedError:
             print("can not connect, try later")
             return
-        sock.send(file_name.encode())
+        sock.send(pickle.dumps(file_name))
         data = pickle.loads(sock.recv(BUFFER_SIZE))
         sock.close()
         print(type(data), data)

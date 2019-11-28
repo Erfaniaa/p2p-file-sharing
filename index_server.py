@@ -33,10 +33,10 @@ class HandleGetHostnameSocketConnection(Thread):
 
     def run(self):
         while True:
-            message = self.connection.recv(16)
+            message = self.connection.recv(1024)
             if not message:
                 break
-            message = str(message)
+            message = pickle.loads(message)
             if len(message) == 0:
                 break
             print("GetHostname")
@@ -73,15 +73,19 @@ class HandleRegistrationSocket(Thread):
     def run(self):
         while True:
             data, address = self.registration_socket.recvfrom(4096)
-            ip_port = address[0] + ":" + str(address[1])
             if not data:
                 break
+            received = pickle.loads(data)
+            ip_port = address[0] + ":" + str(received["port"])
             self.hostname_to_last_message_time[ip_port] = datetime.datetime.now()
             self.connected_nodes[ip_port] = True
-            received = pickle.loads(data)
             print(received)
             for filename in received["files"]:
-                self.filename_to_hostname[filename] = (*address, received["port"])
+                if not self.filename_to_hostname.get(filename):
+                    self.filename_to_hostname[filename] = []
+                if not ip_port in self.filename_to_hostname[filename]:
+                	self.filename_to_hostname[filename].append(ip_port)
+                print(self.filename_to_hostname[filename])
         self.registration_socket.close()
 
 
@@ -90,8 +94,8 @@ class IndexServer:
     def __init__(self):
         self.registration_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.get_hostname_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.registration_socket.bind(('localhost', 5000))
-        self.get_hostname_socket.bind(('localhost', 5001))
+        self.registration_socket.bind(('localhost', 4000))
+        self.get_hostname_socket.bind(('localhost', 4001))
         self.get_hostname_socket.listen(5)
         self.hostname_to_last_message_time = {}
         self.filename_to_hostname = {}

@@ -31,12 +31,39 @@ class HelloThread(Thread):
 
 
 class ReceiverThread(Thread):
-    def __init__(self):
-        pass
+    def __init__(self, ip, port, dir_to_share):
+        Thread.__init__(self)
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.bind((ip, port))
+        self._socket.listen(5)
+        self._dir_to_share = dir_to_share
 
     def run(self):
         while True:
-            pass
+            conn, addr = self._socket.accept()
+            print("receiver   connection ", addr)
+            TransferThread(conn, self._dir_to_share).start()
+
+
+class TransferThread(Thread):
+    def __init__(self, con, dir_to_share):
+        Thread.__init__(self)
+        self._con = con
+        self._dir_to_share = dir_to_share
+
+    def run(self):
+        file_name = pickle.loads(self._con.recv(BUFFER_SIZE))
+        files_list = get_files_list(self._dir_to_share)
+        if file_name not in files_list:
+            msg = {"status": 404}
+        else:
+            file_to_open = self._dir_to_share + "/" + file_name
+            file = open(file_to_open, 'r')
+            msg = {
+                "status": 200,
+                "file": pickle.dumps(file_to_open)
+            }
+        self._con.send(msg)
 
 
 class Node:
@@ -47,23 +74,25 @@ class Node:
         self._dir_to_share = dir_to_share
         self._receiver_port = receiver_port
         self._hello_thread = HelloThread(self._server_ip, self._hello_port, dir_to_share, self._receiver_port)
+        self._receiver_thread = ReceiverThread('localhost', receiver_port, dir_to_share)
 
     def start(self):
         self._hello_thread.start()
+        self._receiver_thread.start()
 
     def cmdline(self):
         while True:
             cmd = input("Enter your command:\n")
             if cmd == "search":
-                print("search")
-                file_name = input("\tEnter the filename:\n")
-                containers = self.search(file_name)
-                if containers:
-                    chosen = self.show_choices(containers)
-                    if chosen:
-                        ip, port_str = chosen.split(":")
-                        port = int(port_str)
-                        file = self.get_file(ip, port, file_name)
+                # file_name = input("\tEnter the filename:\n")
+                # containers = self.search(file_name)
+                # if containers:
+                #     chosen = self.show_choices(containers)
+                #     if chosen:
+                #         ip, port_str = chosen.split(":")
+                #         port = int(port_str)
+                #         file = self.get_file(ip, port, file_name)
+                file = self.get_file('localhost', 5002, "README.md")
 
             elif cmd == "exit":
                 self._hello_thread.exit = True
@@ -91,7 +120,7 @@ class Node:
     def get_file(self, ip, port, file_name):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, port))
-        sock.send(file_name)
+        sock.send(file_name.encode())
         file = sock.recv(BUFFER_SIZE)
         print(file)
         return file
@@ -103,7 +132,7 @@ class Node:
         except ConnectionRefusedError:
             print("can not connect, try later")
             return
-        sock.send(file_name)
+        sock.send(file_name.encode())
         data = pickle.load(sock.recv(BUFFER_SIZE))
         sock.close()
         print(type(data), data)
@@ -117,9 +146,13 @@ def get_files_list(shared_dir):
 
 SERVER_IP = "127.0.0.1"
 SERVER_HELLO_PORT = 4000
-SERVER_SEARCH_PORT = 5000
+SERVER_SEARCH_PORT = 4001
 BUFFER_SIZE = 1024
 
-node = Node(".", 5005)
+port = input()
+if port:
+    node = Node(".", int(port))
+else:
+    node = Node(".", 6000)
 node.start()
 node.cmdline()

@@ -1,3 +1,4 @@
+import codecs
 import pickle
 import socket
 import time
@@ -37,13 +38,15 @@ class ReceiverThread(Thread):
         self._socket.bind((ip, port))
         self._socket.listen(5)
         self._dir_to_share = dir_to_share
+        self.exit = False
 
     def run(self):
         while True:
             conn, addr = self._socket.accept()
             print("receiver   connection ", addr)
             TransferThread(conn, self._dir_to_share).start()
-
+            if self.exit:
+                break
 
 class TransferThread(Thread):
     def __init__(self, con, dir_to_share):
@@ -98,6 +101,7 @@ class Node:
 
             elif cmd == "exit":
                 self._hello_thread.exit = True
+                self._receiver_thread.exit = True
                 break
             else:
                 print("Not a valid command")
@@ -122,7 +126,7 @@ class Node:
     def get_file(self, ip, port, file_name):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ip, port))
-        sock.send(pickle.dumps(file_name))
+        sock.send(file_name.encode())
         with open(file_name, 'wb') as file:
             while True:
                 data = sock.recv(BUFFER_SIZE)
